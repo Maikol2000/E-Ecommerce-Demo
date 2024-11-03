@@ -4,7 +4,7 @@ const BLACKLIST_FILE = "blacklist.json";
 const dotenv = require("dotenv");
 dotenv.config();
 
-const validateRequiredInput = (data, arrRequired) => {
+const validateRequiredInput = (data = {}, arrRequired = []) => {
   const missingFields = arrRequired.filter(
     (field) => !JSON.stringify(data[field])
   );

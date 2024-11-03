@@ -16,18 +16,6 @@ const registerUser = (newUser) => {
   return new Promise(async (resolve, reject) => {
     const { email, password } = newUser;
     try {
-      const existedUser = await User.findOne({
-        email: email,
-      });
-      if (existedUser !== null) {
-        resolve({
-          status: CONFIG_MESSAGE_ERRORS.ALREADY_EXIST.status,
-          message: "The email of user is existed",
-          typeError: CONFIG_MESSAGE_ERRORS.ALREADY_EXIST.type,
-          data: null,
-          statusMessage: "Error",
-        });
-      }
       const hash = bcrypt.hashSync(password, 10);
       const createdUser = await User.create({
         email,
@@ -378,7 +366,6 @@ const verifyGoogleIdToken = async (idToken) => {
     });
 
     const payload = ticket.getPayload();
-    console.log(payload);
     return payload;
   } catch (error) {
     return null;

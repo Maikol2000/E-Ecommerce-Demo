@@ -9,12 +9,8 @@ const initializeDB = async () => {
   try {
     // Kết nối đến cơ sở dữ liệu
     await mongoose
-      .connect(`${process.env.MONGO_DB}`, {
-        useNewUrlParser: true,
-        useUnifiedTopology: true,
-      })
+      .connect(`${process.env.MONGO_DB}`)
       .then(async () => {
-       
         const defaultAdminRole = new Role({
           name: "Admin",
           permissions: [CONFIG_PERMISSIONS.ADMIN],
@@ -28,11 +24,11 @@ const initializeDB = async () => {
         await defaultAdminRole.save();
         await defaultBasicRole.save();
 
-        const hash = bcrypt.hashSync("123456789Kha@", 10);
+        const hash = bcrypt.hashSync("1234@Admin", 10);
         const roleAdmin = await Role.findOne({ name: "Admin" });
         if (roleAdmin) {
           const defaultUser = new User({
-            email: "admin@gmail.com",
+            email: "admin@mailinator.com",
             password: hash,
             role: roleAdmin,
           });

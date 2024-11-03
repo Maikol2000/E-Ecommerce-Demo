@@ -3,126 +3,125 @@ const JwtService = require("../services/JwtService");
 const UserService = require("../services/UserService");
 const { validateRequiredInput } = require("../utils");
 const { CONFIG_MESSAGE_ERRORS } = require("../configs");
+const ErrorResponse = require("../core/ErrorResponse");
+const User = require("../models/UserModel");
+const SuccessResponse = require("../core/SuccressResponse");
 
-const registerUser = async (req, res) => {
-  try {
-    const { email, password } = req.body;
-    const REGEX_EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    const REGEX_PASSWORD =
-      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{6,}$/;
-    const isCheckEmail = REGEX_EMAIL.test(email);
-    const isCheckPassword = REGEX_PASSWORD.test(password);
+const registerUser = async (req, res, next) => {
+  const { email, password } = req.body;
+  const REGEX_EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const REGEX_PASSWORD =
+    /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{6,}$/;
+  const isCheckEmail = REGEX_EMAIL.test(email);
+  const isCheckPassword = REGEX_PASSWORD.test(password);
 
-    const requiredFields = validateRequiredInput(req.body, [
-      "email",
-      "password",
-    ]);
-
-    if (requiredFields?.length) {
-      return res.status(CONFIG_MESSAGE_ERRORS.INVALID.status).json({
-        status: "Error",
-        typeError: CONFIG_MESSAGE_ERRORS.INVALID.type,
-        message: `The field ${requiredFields.join(", ")} is required`,
-      });
-    } else if (!isCheckEmail) {
-      return res.status(CONFIG_MESSAGE_ERRORS.INVALID.status).json({
-        status: "INVALID",
-        typeError: CONFIG_MESSAGE_ERRORS.INVALID.type,
-        message: "The field must a email",
-      });
-    } else if (!isCheckPassword) {
-      return res.status(CONFIG_MESSAGE_ERRORS.INVALID.status).json({
-        status: "Error",
-        typeError: CONFIG_MESSAGE_ERRORS.INVALID.type,
-        message:
-          'The password must be at least 6 characters long and include uppercase letters, lowercase letters, numbers, and special characters."',
-      });
-    }
-    const response = await AuthService.registerUser(req.body);
-    const { data, status, typeError, message, statusMessage } = response;
-    return res.status(status).json({
-      typeError,
-      data,
-      message,
-      status: statusMessage,
-    });
-  } catch (e) {
-    console.log("e", e);
-    return res.status(CONFIG_MESSAGE_ERRORS.INTERNAL_ERROR.status).json({
-      message: "Internal Server Error",
-      data: null,
-      status: "Error",
-      typeError: CONFIG_MESSAGE_ERRORS.INTERNAL_ERROR.type,
-    });
+  const requiredFields = validateRequiredInput(req.body, ["email", "password"]);
+  if (requiredFields?.length) {
+    return next(
+      new ErrorResponse(
+        `The field ${requiredFields.join(", ")} is required`,
+        CONFIG_MESSAGE_ERRORS.INVALID.status,
+        CONFIG_MESSAGE_ERRORS.INVALID.type,
+        "Error"
+      )
+    );
   }
+  if (!isCheckEmail) {
+    return next(
+      new ErrorResponse(
+        "The field must a email",
+        CONFIG_MESSAGE_ERRORS.INVALID.status,
+        CONFIG_MESSAGE_ERRORS.INVALID.type,
+        "INVALID"
+      )
+    );
+  }
+  if (!isCheckPassword) {
+    return next(
+      new ErrorResponse(
+        "The password must be at least 6 characters long and include uppercase letters, lowercase letters, numbers, and special characters.",
+        CONFIG_MESSAGE_ERRORS.INVALID.status,
+        CONFIG_MESSAGE_ERRORS.INVALID.type,
+        "Error"
+      )
+    );
+  }
+
+  const existedUser = await User.findOne({
+    email: email,
+  }).lean();
+
+  if (existedUser) {
+    return next(
+      new ErrorResponse(
+        "The email of user is existed",
+        CONFIG_MESSAGE_ERRORS.ALREADY_EXIST.status,
+        CONFIG_MESSAGE_ERRORS.ALREADY_EXIST.type,
+        "Error"
+      )
+    );
+  }
+
+  const response = await AuthService.registerUser(req.body);
+  const { data, status, message, statusMessage } = response;
+  new SuccessResponse(status, message, statusMessage, data).send(res);
 };
 
 const loginUser = async (req, res) => {
-  try {
-    const { email, password } = req.body;
-    const REGEX_EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    const REGEX_PASSWORD =
-      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{6,}$/;
-    const isCheckEmail = REGEX_EMAIL.test(email);
-    const isCheckPassword = REGEX_PASSWORD.test(password);
-    const requiredFields = validateRequiredInput(req.body, [
-      "email",
-      "password",
-    ]);
+  const { email, password } = req.body;
+  const REGEX_EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const REGEX_PASSWORD =
+    /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{6,}$/;
+  const isCheckEmail = REGEX_EMAIL.test(email);
+  const isCheckPassword = REGEX_PASSWORD.test(password);
+  const requiredFields = validateRequiredInput(req.body, ["email", "password"]);
 
-    if (requiredFields?.length) {
-      return res.status(CONFIG_MESSAGE_ERRORS.INVALID.status).json({
-        status: "Error",
-        typeError: CONFIG_MESSAGE_ERRORS.INVALID.type,
-        message: `The field ${requiredFields.join(", ")} is required`,
-      });
-    } else if (!isCheckEmail) {
-      return res.status(CONFIG_MESSAGE_ERRORS.INVALID.status).json({
-        status: "INVALID",
-        typeError: CONFIG_MESSAGE_ERRORS.INVALID.type,
-        message: "The field must a email",
-      });
-    } else if (!isCheckPassword) {
-      return res.status(CONFIG_MESSAGE_ERRORS.INVALID.status).json({
-        status: "Error",
-        typeError: CONFIG_MESSAGE_ERRORS.INVALID.type,
-        message:
-          'The password must be at least 6 characters long and include uppercase letters, lowercase letters, numbers, and special characters."',
-      });
-    }
-    const response = await AuthService.loginUser(req.body);
-    const {
-      data,
-      status,
-      typeError,
-      message,
-      statusMessage,
-      access_token,
-      refresh_token,
-    } = response;
-    res.cookie("refresh_token", refresh_token, {
-      httpOnly: true,
-      secure: false,
-      sameSite: "strict",
-      path: "/",
-    });
-    return res.status(status).json({
-      typeError,
-      data: {
-        user: data,
-        access_token,
-        refresh_token,
-      },
-      message,
-      status: statusMessage,
-    });
-  } catch (e) {
-    return res.status(CONFIG_MESSAGE_ERRORS.INTERNAL_ERROR.status).json({
-      typeError: "Internal Server Error",
-      data: null,
+  if (requiredFields?.length) {
+    return res.status(CONFIG_MESSAGE_ERRORS.INVALID.status).json({
       status: "Error",
+      typeError: CONFIG_MESSAGE_ERRORS.INVALID.type,
+      message: `The field ${requiredFields.join(", ")} is required`,
+    });
+  } else if (!isCheckEmail) {
+    return res.status(CONFIG_MESSAGE_ERRORS.INVALID.status).json({
+      status: "INVALID",
+      typeError: CONFIG_MESSAGE_ERRORS.INVALID.type,
+      message: "The field must a email",
+    });
+  } else if (!isCheckPassword) {
+    return res.status(CONFIG_MESSAGE_ERRORS.INVALID.status).json({
+      status: "Error",
+      typeError: CONFIG_MESSAGE_ERRORS.INVALID.type,
+      message:
+        'The password must be at least 6 characters long and include uppercase letters, lowercase letters, numbers, and special characters."',
     });
   }
+  const response = await AuthService.loginUser(req.body);
+  const {
+    data,
+    status,
+    typeError,
+    message,
+    statusMessage,
+    access_token,
+    refresh_token,
+  } = response;
+  res.cookie("refresh_token", refresh_token, {
+    httpOnly: true,
+    secure: false,
+    sameSite: "strict",
+    path: "/",
+  });
+  return res.status(status).json({
+    typeError,
+    data: {
+      user: data,
+      access_token,
+      refresh_token,
+    },
+    message,
+    status: statusMessage,
+  });
 };
 
 const refreshToken = async (req, res) => {
@@ -176,7 +175,6 @@ const logoutUser = async (req, res) => {
 const getAuthMe = async (req, res) => {
   try {
     const userId = req.userId;
-    console.log("userId", {userId})
     const response = await UserService.getDetailsUser(userId);
     const { data, status, typeError, message, statusMessage } = response;
     return res.status(status).json({
