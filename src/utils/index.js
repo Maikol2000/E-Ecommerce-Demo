@@ -1,4 +1,4 @@
-const { CONFIG_PERMISSIONS } = require("../configs");
+const { CONFIG_PERMISSIONS, CONFIG_MESSAGE_ERRORS } = require("../configs");
 const fs = require("fs");
 const BLACKLIST_FILE = "blacklist.json";
 const dotenv = require("dotenv");
@@ -169,6 +169,13 @@ const validateDiscountDate = (discount, discountStartDate, discountEndDate) => {
   return { isValid: true, error: null };
 };
 
+const inValidDateError = (errMess) => ({
+  message: errMess || "Invalid",
+  statusMessage: "Error",
+  typeError: CONFIG_MESSAGE_ERRORS.INTERNAL_ERROR.type,
+  status: CONFIG_MESSAGE_ERRORS.INTERNAL_ERROR.status,
+});
+
 module.exports = {
   validateRequiredInput,
   buildQuery,
@@ -181,4 +188,5 @@ module.exports = {
   isTokenInBlacklist,
   isAdminPermission,
   validateDiscountDate,
+  inValidDateError,
 };

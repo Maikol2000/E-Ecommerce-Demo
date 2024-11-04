@@ -63,11 +63,16 @@ const registerUser = async (req, res, next) => {
   }
 
   const response = await AuthService.registerUser(req.body);
-  const { data, status, message, statusMessage } = response;
-  new SuccessResponse(status, message, statusMessage, data).send(res);
+  const { data, status, message, statusMessage, typeError } = response;
+
+  if (typeError) {
+    return next(new ErrorResponse(message, status, typeError, statusMessage));
+  } else {
+    new SuccessResponse(status, message, statusMessage, data).send(res);
+  }
 };
 
-const loginUser = async (req, res) => {
+const loginUser = async (req, res, next) => {
   const { email, password } = req.body;
   const REGEX_EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   const REGEX_PASSWORD =
@@ -77,99 +82,113 @@ const loginUser = async (req, res) => {
   const requiredFields = validateRequiredInput(req.body, ["email", "password"]);
 
   if (requiredFields?.length) {
-    return res.status(CONFIG_MESSAGE_ERRORS.INVALID.status).json({
-      status: "Error",
-      typeError: CONFIG_MESSAGE_ERRORS.INVALID.type,
-      message: `The field ${requiredFields.join(", ")} is required`,
-    });
-  } else if (!isCheckEmail) {
-    return res.status(CONFIG_MESSAGE_ERRORS.INVALID.status).json({
-      status: "INVALID",
-      typeError: CONFIG_MESSAGE_ERRORS.INVALID.type,
-      message: "The field must a email",
-    });
-  } else if (!isCheckPassword) {
-    return res.status(CONFIG_MESSAGE_ERRORS.INVALID.status).json({
-      status: "Error",
-      typeError: CONFIG_MESSAGE_ERRORS.INVALID.type,
-      message:
-        'The password must be at least 6 characters long and include uppercase letters, lowercase letters, numbers, and special characters."',
-    });
+    return next(
+      new ErrorResponse(
+        `The field ${requiredFields.join(", ")} is required`,
+        CONFIG_MESSAGE_ERRORS.INVALID.status,
+        CONFIG_MESSAGE_ERRORS.INVALID.type,
+        "Error"
+      )
+    );
+  }
+  if (!isCheckEmail) {
+    return next(
+      new ErrorResponse(
+        "The field must a email",
+        CONFIG_MESSAGE_ERRORS.INVALID.status,
+        CONFIG_MESSAGE_ERRORS.INVALID.type,
+        "INVALID"
+      )
+    );
+  }
+  if (!isCheckPassword) {
+    return next(
+      new ErrorResponse(
+        "The password must be at least 6 characters long and include uppercase letters, lowercase letters, numbers, and special characters.",
+        CONFIG_MESSAGE_ERRORS.INVALID.status,
+        CONFIG_MESSAGE_ERRORS.INVALID.type,
+        "INVALID"
+      )
+    );
   }
   const response = await AuthService.loginUser(req.body);
   const {
     data,
     status,
-    typeError,
     message,
     statusMessage,
     access_token,
     refresh_token,
+    typeError,
   } = response;
+
+  if (typeError) {
+    return next(new ErrorResponse(message, status, typeError, statusMessage));
+  }
+
+  // 165 days
+  const expRefTokenCookie = new Date(Date.now() + 165 * 24 * 60 * 60 * 1000);
+  // 1 day
+  const expAccTokenCookie = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
   res.cookie("refresh_token", refresh_token, {
     httpOnly: true,
     secure: false,
     sameSite: "strict",
     path: "/",
+    expires: expRefTokenCookie,
   });
-  return res.status(status).json({
-    typeError,
-    data: {
-      user: data,
-      access_token,
-      refresh_token,
-    },
-    message,
-    status: statusMessage,
+  res.cookie("access_token", access_token, {
+    httpOnly: true,
+    secure: false,
+    path: "/",
+    expires: expAccTokenCookie,
   });
+
+  const dataResp = {
+    user: data,
+    access_token,
+    refresh_token,
+  };
+
+  new SuccessResponse(status, message, statusMessage, dataResp).send(res);
 };
 
-const refreshToken = async (req, res) => {
-  try {
-    const token = req.headers["authorization"].split(" ")[1];
-    if (!token) {
-      return res.status(CONFIG_MESSAGE_ERRORS.INVALID.status).json({
-        status: "Error",
-        message: "Unauthorized",
-        typeError: CONFIG_MESSAGE_ERRORS.UNAUTHORIZED.type,
-        data: null,
-      });
-    }
-    const response = await JwtService.refreshTokenJwtService(token);
-    const { data, status, typeError, message, statusMessage } = response;
-    return res.status(status).json({
-      typeError,
-      data,
-      message,
-      status: statusMessage,
-    });
-  } catch (e) {
-    return res.status(CONFIG_MESSAGE_ERRORS.INTERNAL_ERROR.status).json({
-      typeError: "Internal Server Error",
-      data: null,
-      status: "Error",
-    });
+const refreshToken = async (req, res, next) => {
+  const token = req.headers["authorization"].split(" ")[1];
+  if (!token) {
+    return next(
+      new ErrorResponse(
+        "Unauthorized",
+        CONFIG_MESSAGE_ERRORS.INVALID.status,
+        CONFIG_MESSAGE_ERRORS.UNAUTHORIZED.type,
+        "Error"
+      )
+    );
+  }
+  const response = await JwtService.refreshTokenJwtService(token);
+  const {
+    data,
+    status: statusCode,
+    typeError,
+    message,
+    statusMessage,
+  } = response;
+
+  if (typeError != CONFIG_MESSAGE_ERRORS.ACTION_SUCCESS.type) {
+    return next(
+      new ErrorResponse(message, statusCode, typeError, statusMessage)
+    );
+  } else {
+    new SuccessResponse(statusCode, message, statusMessage, data).send(res);
   }
 };
 
 const logoutUser = async (req, res) => {
-  try {
-    const accessToken = req.headers?.authorization?.split(" ")[1];
-    const response = await AuthService.logoutUser(res, accessToken);
-    const { data, status, typeError, message, statusMessage } = response;
-    return res.status(status).json({
-      typeError,
-      data,
-      message,
-      status: statusMessage,
-    });
-  } catch (e) {
-    return res.status(CONFIG_MESSAGE_ERRORS.INTERNAL_ERROR.status).json({
-      typeError: "Internal Server Error",
-      data: null,
-      status: "Error",
-    });
-  }
+  const accessToken = req.headers?.authorization?.split(" ")[1];
+  const response = await AuthService.logoutUser(res, accessToken);
+  const { data, status, message, statusMessage } = response;
+  new SuccessResponse(status, message, statusMessage, data).send(res);
 };
 
 const getAuthMe = async (req, res) => {

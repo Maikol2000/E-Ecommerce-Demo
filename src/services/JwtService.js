@@ -4,14 +4,7 @@ const { CONFIG_MESSAGE_ERRORS } = require("../configs");
 dotenv.config();
 
 const generateToken = async (payload, secretKey, expire) => {
-  const token = jwt.sign(
-    {
-      ...payload,
-    },
-    secretKey,
-    { expiresIn: expire }
-  );
-
+  const token = jwt.sign({ ...payload }, secretKey, { expiresIn: expire });
   return token;
 };
 
@@ -41,7 +34,7 @@ const refreshTokenJwtService = (token) => {
           message: "Success",
           statusMessage: "Success",
           data: {
-            access_token: access_token
+            access_token: access_token,
           },
           typeError: CONFIG_MESSAGE_ERRORS.ACTION_SUCCESS.type,
         });

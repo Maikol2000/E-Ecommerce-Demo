@@ -8,7 +8,11 @@ const {
 } = require("../configs");
 const EmailService = require("../services/EmailService");
 const dotenv = require("dotenv");
-const { addToBlacklist, isAdminPermission } = require("../utils");
+const {
+  addToBlacklist,
+  isAdminPermission,
+  inValidDateError,
+} = require("../utils");
 dotenv.config();
 const { OAuth2Client } = require("google-auth-library");
 
@@ -32,7 +36,7 @@ const registerUser = (newUser) => {
         });
       }
     } catch (e) {
-      reject(e);
+      reject(inValidDateError(e.message));
     }
   });
 };
@@ -96,7 +100,7 @@ const loginUser = (userLogin) => {
         refresh_token,
       });
     } catch (e) {
-      reject(e);
+      reject(inValidDateError(e.message));
     }
   });
 };
@@ -105,6 +109,8 @@ const logoutUser = (res, accessToken) => {
   return new Promise(async (resolve, reject) => {
     try {
       // addToBlacklist(accessToken);
+      res.clearCookie("refresh_token");
+      res.clearCookie("access_token");
       resolve({
         status: CONFIG_MESSAGE_ERRORS.ACTION_SUCCESS.status,
         message: "logout Success",
@@ -164,11 +170,13 @@ const updateAuthMe = (id, data, isPermission) => {
           data: null,
           statusMessage: "Error",
         });
-        return
+        return;
       }
 
       if (data.addresses) {
-        const defaultAddresses = data.addresses.filter(address => address.isDefault);
+        const defaultAddresses = data.addresses.filter(
+          (address) => address.isDefault
+        );
         if (defaultAddresses.length > 1) {
           resolve({
             status: CONFIG_MESSAGE_ERRORS.INVALID.status,
